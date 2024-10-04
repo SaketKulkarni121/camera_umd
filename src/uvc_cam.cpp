@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <rclcpp/rclcpp.hpp>
-#include <uvc_cam/uvc_cam.hpp>
+#include <uvc_cam/uvc_cam.h>
 
 using std::string;
 

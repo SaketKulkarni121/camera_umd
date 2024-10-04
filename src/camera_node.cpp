@@ -1,6 +1,6 @@
 #include <memory>
 #include "rclcpp/rclcpp.hpp"
-#include "uvc_camera/camera.hpp"  // Ensure this matches your header file name
+#include "uvc_camera/camera.h"  // Ensure this matches your header file name
 
 int main(int argc, char **argv) {
   // Initialize the ROS 2 system

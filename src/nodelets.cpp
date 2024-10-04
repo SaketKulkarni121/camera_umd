@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <pluginlib/class_list_macros.hpp>
 
-#include "uvc_camera/camera.hpp"
+#include "uvc_camera/camera.h"
 
 namespace uvc_camera {
 

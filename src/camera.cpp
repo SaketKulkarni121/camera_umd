@@ -9,7 +9,7 @@
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "camera_info_manager/camera_info_manager.hpp"
 #include "image_transport/image_transport.hpp"
-#include "uvc_camera/camera.hpp"
+#include "uvc_camera/camera.h"
 
 using namespace sensor_msgs::msg;
 
