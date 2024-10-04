@@ -1,0 +1,9 @@
+<library path="lib/libnodelet_uvc_camera">
+  <class name="uvc_camera/camera_node" 
+         type="uvc_camera::camera_node" 
+         base_class_type="rclcpp::Node">
+    <description>
+      A node that controls and publishes a single UVC camera.
+    </description>
+  </class>
+</library>

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>uvc_camera</name>
+  <version>0.2.7</version>
+  <description>
+     A collection of nodes that stream images from USB cameras (UVC)
+     and provide CameraInfo messages to consumers. Includes a
+     two-camera node that provides rough synchronization
+     for stereo vision.
+
+     Currently uses the base driver from Morgan Quigley's uvc_cam package.
+  </description>
+
+  <maintainer email="ken@tossell.net">Ken Tossell</maintainer>
+  <maintainer email="ros-orphaned-packages@googlegroups.com">ROS Orphaned Package Maintainers</maintainer>
+
+  <license>GPLv2</license>
+
+  <url type="website">http://ros.org/wiki/uvc_camera</url>
+
+  <author email="ken@tossell.net">Ken Tossell</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>camera_info_manager</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>nodelet</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>libv4l-dev</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>camera_info_manager</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+  <exec_depend>nodelet</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>libv4l-dev</exec_depend>
+
+  <export>
+    <nodelet plugin="${prefix}/nodelet_uvc_camera.xml"/>
+  </export>
+</package>
