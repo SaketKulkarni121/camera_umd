@@ -76,7 +76,7 @@ void Camera::setCameraControls() {
     if (node_->get_parameter("auto_focus", auto_focus)) {
         cam->set_v4l2_control(V4L2_CID_FOCUS_AUTO, auto_focus, "auto_focus");
     }
-
+  
     int focus_absolute;
     if (node_->get_parameter("focus_absolute", focus_absolute)) {
         cam->set_v4l2_control(V4L2_CID_FOCUS_ABSOLUTE, focus_absolute, "focus_absolute");

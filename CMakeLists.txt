@@ -18,27 +18,27 @@ include_directories(
 )
 
 # Declare a C++ library
-add_library(nodelet_uvc_camera SHARED
-  src/nodelets.cpp
-  src/camera.cpp
-  src/uvc_cam.cpp
-)
+# add_library(nodelet_uvc_camera SHARED
+#   src/nodelets.cpp
+#   src/camera.cpp
+#   src/uvc_cam.cpp
+# )
 
-# Link libraries
-target_link_libraries(nodelet_uvc_camera
-  ${Boost_LIBRARIES}
-  ${V4L2_LIBRARIES}
-  rclcpp::rclcpp
-  camera_info_manager::camera_info_manager
-  image_transport::image_transport
-  rclcpp_components::component
-)
+# # Link libraries
+# target_link_libraries(nodelet_uvc_camera
+#   ${Boost_LIBRARIES}
+#   ${V4L2_LIBRARIES}
+#   rclcpp::rclcpp
+#   camera_info_manager::camera_info_manager
+#   image_transport::image_transport
+#   rclcpp_components::component
+# )
 
 # Register the components
-rclcpp_components_register_node(nodelet_uvc_camera
-  PLUGIN "uvc_camera::camera_node"
-  EXECUTABLE "camera_node"
-)
+# rclcpp_components_register_node(nodelet_uvc_camera
+#   PLUGIN "uvc_camera::camera_node"
+#   EXECUTABLE "camera_node"
+# )
 
 # Add executables
 add_executable(uvc_camera_node src/camera_node.cpp src/camera.cpp src/uvc_cam.cpp)
@@ -50,7 +50,6 @@ target_link_libraries(uvc_camera_node
 
 # Install targets
 install(TARGETS
-  nodelet_uvc_camera
   uvc_camera_node
   DESTINATION lib/${PROJECT_NAME}
 )
