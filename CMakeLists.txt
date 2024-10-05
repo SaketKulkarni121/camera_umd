@@ -58,6 +58,9 @@ ament_target_dependencies(uvc_camera_node
   Boost
 )
 
+ament_export_dependencies(rclcpp sensor_msgs camera_info_manager image_transport rclcpp_components)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+
 # Install targets
 install(TARGETS
   uvc_camera_node
