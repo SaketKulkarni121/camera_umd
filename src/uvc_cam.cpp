@@ -9,51 +9,17 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <rclcpp/rclcpp.hpp>
 #include <uvc_cam/uvc_cam.h>
 
 using std::string;
 
 namespace uvc_cam {
 
-class Cam {
-public:
-    Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, rclcpp::Node::SharedPtr node);
-    ~Cam();
-    void enumerate();
-    int grab(unsigned char **frame, uint32_t &bytes_used);
-    void release(unsigned buf_idx);
-    void set_control(uint32_t id, int val);
-    void set_motion_thresholds(int lum, int count);
-
-private:
-    int fd;
-    mode_t mode;
-    string device;
-    int width, height, fps;
-    unsigned char *rgb_frame;
-    unsigned char *last_yuv_frame;
-    v4l2_format fmt;
-    v4l2_capability cap;
-    v4l2_requestbuffers rb;
-    v4l2_buffer buf;
-    void *mem[NUM_BUFFER];
-    size_t buf_length;
-    int motion_threshold_luminance;
-    int motion_threshold_count;
-    rclcpp::Node::SharedPtr node_;
-
-    // Saturate input into [0, 255]
-    inline unsigned char sat(float f) {
-        return static_cast<unsigned char>(f >= 255 ? 255 : (f < 0 ? 0 : f));
-    }
-};
-
-Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, rclcpp::Node::SharedPtr node)
-    : mode(_mode), device(_device), width(_width), height(_height), fps(_fps), node_(node),
+Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps)
+    : mode(_mode), device(_device), width(_width), height(_height), fps(_fps),
       motion_threshold_luminance(100), motion_threshold_count(-1), rgb_frame(nullptr) 
 {
-    RCLCPP_INFO(node_->get_logger(), "Opening %s", _device);
+    printf("Opening %s\n", _device);
     if ((fd = open(_device, O_RDWR)) == -1)
         throw std::runtime_error("Couldn't open " + device);
 
@@ -75,7 +41,7 @@ Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, r
     int ret;
     while ((ret = ioctl(fd, VIDIOC_ENUM_FMT, &f)) == 0)
     {
-        RCLCPP_INFO(node_->get_logger(), "pixfmt %d = '%4s' desc = '%s'", f.index++, (char *)&f.pixelformat, f.description);
+        printf("pixfmt %d = '%4s' desc = '%s'\n", f.index++, (char *)&f.pixelformat, f.description);
         // Enumerate frame sizes
         v4l2_frmsizeenum fsize;
         fsize.index = 0;
@@ -85,7 +51,7 @@ Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, r
             fsize.index++;
             if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
             {
-                RCLCPP_INFO(node_->get_logger(), "  discrete: %ux%u:   ", fsize.discrete.width, fsize.discrete.height);
+                printf("  discrete: %ux%u:   ", fsize.discrete.width, fsize.discrete.height);
                 // Enumerate frame rates
                 v4l2_frmivalenum fival;
                 fival.index = 0;
@@ -97,27 +63,27 @@ Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, r
                     fival.index++;
                     if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE)
                     {
-                        RCLCPP_INFO(node_->get_logger(), "%u/%u ", fival.discrete.numerator, fival.discrete.denominator);
+                        printf("%u/%u ", fival.discrete.numerator, fival.discrete.denominator);
                     }
                     else
-                        RCLCPP_WARN(node_->get_logger(), "I only handle discrete frame intervals...");
+                        printf("I only handle discrete frame intervals...\n");
                 }
-                RCLCPP_INFO(node_->get_logger(), "\n");
+                printf("\n");
             }
             else if (fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
             {
-                RCLCPP_INFO(node_->get_logger(), "  continuous: %ux%u to %ux%u\n", fsize.stepwise.min_width, fsize.stepwise.min_height, fsize.stepwise.max_width, fsize.stepwise.max_height);
+                printf("  continuous: %ux%u to %ux%u\n", fsize.stepwise.min_width, fsize.stepwise.min_height, fsize.stepwise.max_width, fsize.stepwise.max_height);
             }
             else if (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)
             {
-                RCLCPP_INFO(node_->get_logger(), "  stepwise: %ux%u to %ux%u step %ux%u\n",
-                            fsize.stepwise.min_width, fsize.stepwise.min_height,
-                            fsize.stepwise.max_width, fsize.stepwise.max_height,
-                            fsize.stepwise.step_width, fsize.stepwise.step_height);
+                printf("  stepwise: %ux%u to %ux%u step %ux%u\n",
+                        fsize.stepwise.min_width, fsize.stepwise.min_height,
+                        fsize.stepwise.max_width, fsize.stepwise.max_height,
+                        fsize.stepwise.step_width, fsize.stepwise.step_height);
             }
             else
             {
-                RCLCPP_WARN(node_->get_logger(), "  fsize.type not supported: %d\n", fsize.type);
+                printf("  fsize.type not supported: %d\n", fsize.type);
             }
         }
     }
@@ -147,7 +113,7 @@ Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, r
     {
         if (errno == ENOTTY)
         {
-            RCLCPP_WARN(node_->get_logger(), "VIDIOC_S_PARM not supported on this v4l2 device, framerate not set");
+            printf("VIDIOC_S_PARM not supported on this v4l2 device, framerate not set\n");
         }
         else
         {
@@ -165,7 +131,7 @@ Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps, r
         throw std::runtime_error("Unable to allocate buffers");
 
     if (NUM_BUFFER != rb.count)
-        RCLCPP_WARN(node_->get_logger(), "Asked for %d buffers, got %d", NUM_BUFFER, rb.count);
+        printf("Asked for %d buffers, got %d\n", NUM_BUFFER, rb.count);
 
     for (unsigned i = 0; i < NUM_BUFFER; i++)
     {
@@ -220,6 +186,10 @@ Cam::~Cam() {
     delete[] last_yuv_frame;
 }
 
+inline unsigned char sat(float f)
+{
+    return (unsigned char)( f >= 255 ? 255 : (f < 0 ? 0 : f));
+}
 
 int Cam::grab(unsigned char **frame, uint32_t &bytes_used) {
     memset(&buf, 0, sizeof(buf));
@@ -273,8 +243,54 @@ void Cam::release(unsigned buf_idx) {
 
     if (ioctl(fd, VIDIOC_QBUF, &buf) < 0)
     {
-        RCLCPP_WARN(node_->get_logger(), "Failed to requeue buffer");
+        printf("Failed to requeue buffer\n");
     }
+}
+
+bool Cam::v4l2_query(int id, const std::string& name)
+{
+  if (fd < 0) {
+    printf("Capture file not open: Can't %s\n", name.c_str());
+    return false;
+  }
+
+  struct v4l2_queryctrl queryctrl;
+  memset(&queryctrl, 0, sizeof(queryctrl));
+  queryctrl.id = id;
+  if (v4l2_ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl) < 0) {
+    if (errno == EINVAL) {
+      //error(FLF("Setting %s is not supported\n"), name.c_str());
+    } else {
+    //   ROS_WARN("Failed query %s", name.c_str());
+    }
+    return false;
+  }
+
+  return true;
+}
+
+bool Cam::set_v4l2_control(int id, int value, const std::string& name)
+{
+  if (fd < 0) {
+    printf("Capture file not open: Can't %s\n", name.c_str());
+    return false;
+  }
+
+  if (!v4l2_query(id, name)) {
+      printf("Setting %s is not supported\n", name.c_str());
+      return false;
+  }
+
+  struct v4l2_control control;
+  memset(&control, 0, sizeof(control));
+  control.id = id;
+  control.value = value;
+  if (v4l2_ioctl(fd, VIDIOC_S_CTRL, &control) < 0) {
+    // ROS_WARN("Failed to change %s to %d", name.c_str(), control.value);
+    return false;
+  }
+
+  return true;
 }
 
 void Cam::set_control(uint32_t id, int val) {
@@ -284,7 +300,7 @@ void Cam::set_control(uint32_t id, int val) {
     control.value = val;
 
     if (ioctl(fd, VIDIOC_S_CTRL, &control) < 0)
-        RCLCPP_WARN(node_->get_logger(), "Failed to set control %u to %d", id, val);
+        printf("Failed to set control %u to %d\n", id, val);
 }
 
 void Cam::set_motion_thresholds(int lum, int count) {

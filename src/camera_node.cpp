@@ -1,18 +1,20 @@
 #include <memory>
 #include "rclcpp/rclcpp.hpp"
-#include "uvc_camera/camera.h"  // Ensure this matches your header file name
+#include "uvc_camera/camera.h"
+
+class CameraNode : public rclcpp::Node {
+public:
+    CameraNode() : Node("camera_node") {
+        camera_ = std::make_shared<uvc_cam::Camera>(this->shared_from_this(), this->shared_from_this());
+    }
+
+private:
+    std::shared_ptr<uvc_cam::Camera> camera_;
+};
 
 int main(int argc, char **argv) {
-  // Initialize the ROS 2 system
-  rclcpp::init(argc, argv);
-
-  // Create a shared pointer to the node
-  auto camera_node = std::make_shared<uvc_camera::Camera>();
-
-  // Spin the node
-  rclcpp::spin(camera_node);
-
-  // Shutdown the ROS 2 system
-  rclcpp::shutdown();
-  return 0;
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<CameraNode>());
+    rclcpp::shutdown();
+    return 0;
 }

@@ -13,131 +13,128 @@
 
 using namespace sensor_msgs::msg;
 
-namespace uvc_camera {
+namespace uvc_cam {
 
-Camera::Camera(rclcpp::Node::SharedPtr node)
-    : node_(node),
-      it_(node_),
-      info_mgr(node_, "camera"),
-      cam(nullptr),
-      ok(false) {
-      
+Camera::Camera(rclcpp::Node::SharedPtr comm_node, rclcpp::Node::SharedPtr param_node)
+    : node(comm_node),
+      pnode(param_node),
+      it(comm_node),
+      ok(false),
+      info_mgr(comm_node.get(), "camera_name", "camera_info_url") {
+
+    std::string url;
+
+    node->get_parameter("camera_info_url", url);
+    
     // Default config values
     width = 640;
     height = 480;
     fps = 10;
-    skip_frames = 0;
-    frames_to_skip = 0;
     device = "/dev/video0";
     frame = "camera";
-    rotate = false;
     format = "rgb";
 
-    // Set up information manager
-    std::string url, camera_name;
-    node_->get_parameter("camera_info_url", url);
-    node_->get_parameter("camera_name", camera_name);
-    info_mgr.setCameraName(camera_name);
     info_mgr.loadCameraInfo(url);
-
+    
     // Pull other configuration
-    node_->get_parameter("device", device);
-    node_->get_parameter("fps", fps);
-    node_->get_parameter("skip_frames", skip_frames);
-    node_->get_parameter("width", width);
-    node_->get_parameter("height", height);
-    node_->get_parameter("frame_id", frame);
-    node_->get_parameter("format", format);
-
+    node->get_parameter("device", device);
+    node->get_parameter("fps", fps);
+    node->get_parameter("skip_frames", skip_frames);
+    node->get_parameter("width", width);
+    node->get_parameter("height", height);
+    node->get_parameter("frame_id", frame);
+    node->get_parameter("format", format);
+    
     // Advertise image streams and info streams
     if (format != "jpeg") {
-        pub_ = it_.advertise("image_raw", 1);
+        pub = it.advertise("image_raw", 1);
     } else {
-        pubjpeg_ = node_->create_publisher<CompressedImage>("image_raw/compressed", 1);
+        pubjpeg = node->create_publisher<sensor_msgs::msg::CompressedImage>("image_raw/compressed", 1);
     }
-    info_pub_ = node_->create_publisher<CameraInfo>("camera_info", 1);
+    info_pub = node->create_publisher<sensor_msgs::msg::CameraInfo>("camera_info", 1);
 
     // Initialize the camera
     uvc_cam::Cam::mode_t mode = (format == "jpeg") ? uvc_cam::Cam::MODE_MJPG : uvc_cam::Cam::MODE_RGB;
-    cam = new uvc_cam::Cam(device.c_str(), mode, width, height, fps);
-    cam->set_motion_thresholds(100, -1);
 
-    // Camera control parameters
+    // Set camera controls
     setCameraControls();
 
     // Start the image feeding thread
     ok = true;
-    image_thread_ = std::thread(&Camera::feedImages, this);
+    image_thread = std::thread(&Camera::feedImages, this);
+    cam = std::make_unique<uvc_cam::Cam>(device.c_str(), mode, width, height, fps);
 }
 
 void Camera::setCameraControls() {
+    if (cam) {
     // Set various camera controls using parameters
-    bool auto_focus;
-    if (node_->get_parameter("auto_focus", auto_focus)) {
-        cam->set_v4l2_control(V4L2_CID_FOCUS_AUTO, auto_focus, "auto_focus");
-    }
-  
-    int focus_absolute;
-    if (node_->get_parameter("focus_absolute", focus_absolute)) {
-        cam->set_v4l2_control(V4L2_CID_FOCUS_ABSOLUTE, focus_absolute, "focus_absolute");
-    }
+        bool auto_focus;
+        if (node->get_parameter("auto_focus", auto_focus)) {
+            cam->set_v4l2_control(V4L2_CID_FOCUS_AUTO, auto_focus, "auto_focus");
+        }
+    
+        int focus_absolute;
+        if (node->get_parameter("focus_absolute", focus_absolute)) {
+            cam->set_v4l2_control(V4L2_CID_FOCUS_ABSOLUTE, focus_absolute, "focus_absolute");
+        }
 
-    bool auto_exposure;
-    if (node_->get_parameter("auto_exposure", auto_exposure)) {
-        int val = auto_exposure ? V4L2_EXPOSURE_AUTO : V4L2_EXPOSURE_MANUAL;
-        cam->set_v4l2_control(V4L2_CID_EXPOSURE_AUTO, val, "auto_exposure");
-    }
+        bool auto_exposure;
+        if (node->get_parameter("auto_exposure", auto_exposure)) {
+            int val = auto_exposure ? V4L2_EXPOSURE_AUTO : V4L2_EXPOSURE_MANUAL;
+            cam->set_v4l2_control(V4L2_CID_EXPOSURE_AUTO, val, "auto_exposure");
+        }
 
-    int exposure_absolute;
-    if (node_->get_parameter("exposure_absolute", exposure_absolute)) {
-        cam->set_v4l2_control(V4L2_CID_EXPOSURE_ABSOLUTE, exposure_absolute, "exposure_absolute");
-    }
+        int exposure_absolute;
+        if (node->get_parameter("exposure_absolute", exposure_absolute)) {
+            cam->set_v4l2_control(V4L2_CID_EXPOSURE_ABSOLUTE, exposure_absolute, "exposure_absolute");
+        }
 
-    int brightness;
-    if (node_->get_parameter("brightness", brightness)) {
-        cam->set_v4l2_control(V4L2_CID_BRIGHTNESS, brightness, "brightness");
-    }
+        int brightness;
+        if (node->get_parameter("brightness", brightness)) {
+            cam->set_v4l2_control(V4L2_CID_BRIGHTNESS, brightness, "brightness");
+        }
 
-    int contrast;
-    if (node_->get_parameter("contrast", contrast)) {
-        cam->set_v4l2_control(V4L2_CID_CONTRAST, contrast, "contrast");
-    }
+        int contrast;
+        if (node->get_parameter("contrast", contrast)) {
+            cam->set_v4l2_control(V4L2_CID_CONTRAST, contrast, "contrast");
+        }
 
-    // Additional camera controls can be set here...
+        // Additional camera controls can be set here...
 
-    bool h_flip;
-    if (node_->get_parameter("horizontal_flip", h_flip)) {
-        cam->set_v4l2_control(V4L2_CID_HFLIP, h_flip, "horizontal_flip");
-    }
+        bool h_flip;
+        if (node->get_parameter("horizontal_flip", h_flip)) {
+            cam->set_v4l2_control(V4L2_CID_HFLIP, h_flip, "horizontal_flip");
+        }
 
-    bool v_flip;
-    if (node_->get_parameter("vertical_flip", v_flip)) {
-        cam->set_v4l2_control(V4L2_CID_VFLIP, v_flip, "vertical_flip");
+        bool v_flip;
+        if (node->get_parameter("vertical_flip", v_flip)) {
+            cam->set_v4l2_control(V4L2_CID_VFLIP, v_flip, "vertical_flip");
+        }
     }
 }
 
-void Camera::sendInfo(const Image::SharedPtr &image, rclcpp::Time time) {
-    CameraInfo info(info_mgr.getCameraInfo());
+void Camera::sendInfo(sensor_msgs::msg::Image::SharedPtr &image, rclcpp::Time time) {
+    camera_info_manager::CameraInfo info(info_mgr.getCameraInfo());
 
-    if (info.K[0] != 0.0 && (image->width != info.width || image->height != info.height)) {
-        info = CameraInfo();  // Reset if not calibrated
-    }
+    // if (info.K[0] != 0.0 && (image->width != info.width || image->height != info.height)) {
+    //     info = CameraInfo();  // Reset if not calibrated
+    // }
 
-    if (info.K[0] == 0.0) {
-        info.width = image->width;
-        info.height = image->height;
-    }
+    // if (info.K[0] == 0.0) {
+    //     info.width = image->width;
+    //     info.height = image->height;
+    // }
 
     info.header.stamp = time;
     info.header.frame_id = frame;
-    info_pub_->publish(info);
+    info_pub->publish(info);
 }
 
 void Camera::sendInfoJpeg(rclcpp::Time time) {
     CameraInfo info(info_mgr.getCameraInfo());
     info.header.stamp = time;
     info.header.frame_id = frame;
-    info_pub_->publish(info);
+    info_pub->publish(info);
 }
 
 void Camera::feedImages() {
@@ -146,7 +143,7 @@ void Camera::feedImages() {
     while (ok) {
         unsigned char *img_frame = nullptr;
         uint32_t bytes_used;
-        auto capture_time = node_->now();
+        auto capture_time = node->now();
 
         int idx = cam->grab(&img_frame, bytes_used);
 
@@ -158,21 +155,19 @@ void Camera::feedImages() {
                 image->step = 3 * width;
                 image->encoding = "rgb8";  // Use string literals for encodings
                 image->header.stamp = capture_time;
-                image->header.seq = pair_id;
                 image->header.frame_id = frame;
                 image->data.resize(image->step * image->height);
                 memcpy(image->data.data(), img_frame, width * height * 3);
-                pub_.publish(image);
+                pub.publish(image);
                 sendInfo(image, capture_time);
                 ++pair_id;
             } else if (img_frame && format == "jpeg") {
-                auto image = std::make_shared<CompressedImage>();
+                auto image = std::make_shared<sensor_msgs::msg::CompressedImage>();
                 image->header.stamp = capture_time;
-                image->header.seq = pair_id;
                 image->header.frame_id = frame;
                 image->data.resize(bytes_used);
                 memcpy(image->data.data(), img_frame, bytes_used);
-                pubjpeg_->publish(image);
+                pubjpeg->publish(*image);
                 sendInfoJpeg(capture_time);
                 ++pair_id;
             }
@@ -186,11 +181,10 @@ void Camera::feedImages() {
 }
 
 Camera::~Camera() {
-    ok = false;
-    if (image_thread_.joinable()) {
-        image_thread_.join();
+    ok = false; // Stop the thread
+    if (image_thread.joinable()) {
+        image_thread.join();
     }
-    delete cam;
 }
 
 } // namespace uvc_camera

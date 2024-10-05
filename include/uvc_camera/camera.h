@@ -1,22 +1,29 @@
-#include <ros/ros.h>
-#include <image_transport/image_transport.h>
-#include "uvc_cam/uvc_cam.h"
-#include <boost/thread.hpp>
-#include <camera_info_manager/camera_info_manager.h>
-
-namespace uvc_camera {
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <camera_info_manager/camera_info_manager.hpp>
+#include <image_transport/image_transport.hpp>
+#include <memory>
+#include <thread>
+#include <uvc_cam/uvc_cam.h>
+namespace uvc_cam {
 
 class Camera {
-  public:
-    Camera(ros::NodeHandle comm_nh, ros::NodeHandle param_nh);
+public:
+    Camera(rclcpp::Node::SharedPtr comm_node, rclcpp::Node::SharedPtr param_node);
     void onInit();
-    void sendInfo(sensor_msgs::ImagePtr &image, ros::Time time);
-    void sendInfoJpeg(ros::Time time);
+    void sendInfo(sensor_msgs::msg::Image::SharedPtr &image, rclcpp::Time time);
+    void sendInfoJpeg(rclcpp::Time time);
     void feedImages();
     ~Camera();
 
-  private:
-    ros::NodeHandle node, pnode;
+private:
+    std::unique_ptr<uvc_cam::Cam> cam;
+    void setCameraControls();  // Declaration added here
+
+    rclcpp::Node::SharedPtr node;
+    rclcpp::Node::SharedPtr pnode;
     image_transport::ImageTransport it;
     bool ok;
 
@@ -27,12 +34,10 @@ class Camera {
     camera_info_manager::CameraInfoManager info_mgr;
 
     image_transport::Publisher pub;
-    ros::Publisher pubjpeg;
-    ros::Publisher info_pub;
+    rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr pubjpeg;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr info_pub;
 
-    uvc_cam::Cam *cam;
-    boost::thread image_thread;
+    std::thread image_thread;
 };
 
-};
-
+} // namespace uvc_camera

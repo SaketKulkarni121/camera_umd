@@ -9,8 +9,13 @@ find_package(camera_info_manager REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread system)
-# find_package(V4L2 REQUIRED)
-set(V4L2_LIBRARIES v4l2)
+
+find_library(V4L2_LIBRARIES v4l2)
+
+if (NOT V4L2_LIBRARIES)
+  message(FATAL_ERROR "v4l2 library not found")
+endif()
+# set(V4L2_LIBRARIES v4l2)
 
 # Include directories
 include_directories(
@@ -43,9 +48,14 @@ include_directories(
 # Add executables
 add_executable(uvc_camera_node src/camera_node.cpp src/camera.cpp src/uvc_cam.cpp)
 target_link_libraries(uvc_camera_node
-  ${Boost_LIBRARIES}
   ${V4L2_LIBRARIES}
-  rclcpp::rclcpp
+)
+ament_target_dependencies(uvc_camera_node
+  camera_info_manager
+  image_transport
+  rclcpp
+  sensor_msgs
+  Boost
 )
 
 # Install targets
